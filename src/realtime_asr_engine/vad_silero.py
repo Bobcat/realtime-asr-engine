@@ -27,12 +27,12 @@ def _candidate_site_packages_paths(venv_root: Path) -> list[Path]:
     return out
 
 
-def _append_whisperx_venv_site_packages(whisperx_venv: str | None) -> str:
-    if not whisperx_venv:
-        raise RuntimeError("live.rolling.vad.whisperx_venv is required when VAD is enabled")
-    venv_root = Path(str(whisperx_venv)).expanduser().resolve()
+def _append_venv_site_packages(venv: str | None) -> str:
+    if not venv:
+        raise RuntimeError("live.rolling.vad.venv is required when VAD is enabled")
+    venv_root = Path(str(venv)).expanduser().resolve()
     if not venv_root.exists():
-        raise RuntimeError(f"whisperx_venv_not_found:{venv_root}")
+        raise RuntimeError(f"vad_venv_not_found:{venv_root}")
     for candidate in _candidate_site_packages_paths(venv_root):
         if candidate.exists():
             candidate_str = str(candidate)
@@ -68,7 +68,7 @@ class SileroVadGate:
         if self._sample_rate_hz != 16000:
             raise RuntimeError(f"silero_requires_16000hz:got_{self._sample_rate_hz}")
 
-        self._site_packages_path = _append_whisperx_venv_site_packages(settings.whisperx_venv)
+        self._site_packages_path = _append_venv_site_packages(settings.venv)
         with SileroVadGate._MODEL_LOCK:
             if SileroVadGate._SHARED_VAD_MODEL is None:
                 torch_mod = importlib.import_module("torch")
@@ -183,7 +183,7 @@ class SileroVadGate:
             "max_speech_duration_s": float(max(0.1, float(self._settings.max_speech_duration_s))),
             "min_speech_ms": int(max(0, self._settings.min_speech_ms)),
             "hangover_ms": int(max(0, self._settings.hangover_ms)),
-            "whisperx_venv": str(self._settings.whisperx_venv or ""),
+            "venv": str(self._settings.venv or ""),
             "site_packages": str(self._site_packages_path or ""),
         }
 

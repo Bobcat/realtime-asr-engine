@@ -392,7 +392,7 @@ class LiveASRRunnerTest(unittest.TestCase):
                     "max_speech_duration_s": float(self.settings.max_speech_duration_s),
                     "min_speech_ms": int(self.settings.min_speech_ms),
                     "hangover_ms": int(self.settings.hangover_ms),
-                    "whisperx_venv": str(self.settings.whisperx_venv or ""),
+                    "venv": str(self.settings.venv or ""),
                     "site_packages": "/fake/site-packages",
                 }
 
@@ -422,7 +422,7 @@ class LiveASRRunnerTest(unittest.TestCase):
                     ),
                     vad=SileroVadSettings(
                         enabled=True,
-                        whisperx_venv="/fake/venv",
+                        venv="/fake/venv",
                         threshold=0.35,
                         max_speech_duration_s=12.0,
                         min_speech_ms=120,
@@ -543,7 +543,7 @@ class LiveASRRunnerTest(unittest.TestCase):
                         buffer_trim_drop_ms=1000,
                         min_new_audio_ms=0,
                     ),
-                    vad=SileroVadSettings(enabled=True, whisperx_venv="/fake/venv"),
+                    vad=SileroVadSettings(enabled=True, venv="/fake/venv"),
                     speech_gate=SpeechGateSettings(
                         silence_enter_ms=900,
                         rearm_hits=1,

@@ -38,7 +38,7 @@ class SettingsTest(unittest.TestCase):
                     },
                     "vad": {
                         "enabled": True,
-                        "whisperx_venv": "/fake/venv",
+                        "venv": "/fake/venv",
                         "threshold": 0.35,
                         "max_speech_duration_s": 12.0,
                         "min_speech_ms": 120,
@@ -60,7 +60,7 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(settings.pacing.policy.base_emit_ms, 250)
         self.assertEqual(settings.pacing.policy.startup_emit_ms, 100)
         self.assertTrue(settings.vad.enabled)
-        self.assertEqual(settings.vad.whisperx_venv, "/fake/venv")
+        self.assertEqual(settings.vad.venv, "/fake/venv")
         self.assertEqual(settings.speech_gate.force_commit_silence_ms, 2500)
 
     def test_live_runner_settings_builder_uses_package_defaults(self) -> None:

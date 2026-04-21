@@ -208,7 +208,7 @@ class LiveASRRunner:
                     "max_speech_duration_s": float(self.settings.vad.max_speech_duration_s),
                     "min_speech_ms": int(self.settings.vad.min_speech_ms),
                     "hangover_ms": int(self.settings.vad.hangover_ms),
-                    "whisperx_venv": str(self.settings.vad.whisperx_venv or ""),
+                    "venv": str(self.settings.vad.venv or ""),
                     "sample_rate_hz": int(self.audio_format.sample_rate_hz),
                 },
                 "state": {},

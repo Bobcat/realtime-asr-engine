@@ -82,7 +82,7 @@ class LivePacingSettings:
 @dataclass(frozen=True)
 class SileroVadSettings:
     enabled: bool = False
-    whisperx_venv: str | None = None
+    venv: str | None = None
     threshold: float = 0.5
     max_speech_duration_s: float = 30.0
     min_speech_ms: int = 0
@@ -91,7 +91,7 @@ class SileroVadSettings:
     def normalized(self) -> "SileroVadSettings":
         return SileroVadSettings(
             enabled=bool(self.enabled),
-            whisperx_venv=(str(self.whisperx_venv) if self.whisperx_venv else None),
+            venv=(str(self.venv) if self.venv else None),
             threshold=float(max(0.0, min(1.0, float(self.threshold)))),
             max_speech_duration_s=float(max(0.1, float(self.max_speech_duration_s))),
             min_speech_ms=int(max(0, int(self.min_speech_ms))),
@@ -220,7 +220,7 @@ class LiveASRRunnerSettings:
             ),
             vad=SileroVadSettings(
                 enabled=_as_bool(vad_payload.get("enabled"), False),
-                whisperx_venv=_as_optional_text(vad_payload.get("whisperx_venv")),
+                venv=_as_optional_text(vad_payload.get("venv")),
                 threshold=_as_float(vad_payload.get("threshold"), 0.35),
                 max_speech_duration_s=_as_float(vad_payload.get("max_speech_duration_s"), 12.0),
                 min_speech_ms=_as_int(vad_payload.get("min_speech_ms"), 120),
