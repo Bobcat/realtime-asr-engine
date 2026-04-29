@@ -72,3 +72,7 @@ Run the package tests:
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -q
 ```
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
