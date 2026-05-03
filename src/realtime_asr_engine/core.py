@@ -13,10 +13,14 @@ from .settings import RollingASRSettings
 from .types import ASRResult
 from .types import ASRWorkItem
 from .types import ApplyDecision
+from .types import PreviewCommitDecision
 from .types import PreviewTranscriptState
 from .types import TranscriptSegment
 from .types import TranscriptState
 from .types import WorkDecision
+
+
+_MAX_RETIRED_SEQUENCE_IDS = 32
 
 
 @dataclass
@@ -30,6 +34,7 @@ class _RuntimeState:
     last_submitted_t1_ms: int = 0
     inflight_previous_last_submitted_t1_ms: int = 0
     inflight_work: ASRWorkItem | None = None
+    retired_sequence_ids: set[int] = field(default_factory=set)
     input_finalized: bool = False
     hard_clip_count: int = 0
     hard_clip_dropped_audio_ms: int = 0
@@ -292,11 +297,15 @@ class RollingASRCore:
 
     def apply_result(self, result: ASRResult) -> ApplyDecision:
         rt = self._rt
+        sequence_id = int(result.sequence_id)
+        if sequence_id in rt.retired_sequence_ids:
+            rt.retired_sequence_ids.discard(sequence_id)
+            return self._record_apply_decision(ApplyDecision(reason="retired_result", applied=False))
         inflight = rt.inflight_work
         if inflight is None:
             return self._record_apply_decision(ApplyDecision(reason="no_inflight_work", applied=False))
-        if int(result.sequence_id) != int(inflight.sequence_id):
-            if int(result.sequence_id) < int(inflight.sequence_id):
+        if sequence_id != int(inflight.sequence_id):
+            if sequence_id < int(inflight.sequence_id):
                 return self._record_apply_decision(ApplyDecision(reason="stale_result", applied=False))
             return self._record_apply_decision(ApplyDecision(reason="unexpected_result", applied=False))
 
@@ -387,6 +396,53 @@ class RollingASRCore:
         include_recording_end: bool = True,
         max_t1_ms: int | None = None,
     ) -> TranscriptSegment | None:
+        return self._commit_preview(
+            include_recording_end=include_recording_end,
+            max_t1_ms=max_t1_ms,
+            commit_reason="rolling_context_tail_preview_commit",
+        )
+
+    def manual_commit_preview(self) -> PreviewCommitDecision:
+        commit_reason = "manual_preview_commit"
+        segment = self._commit_preview(
+            include_recording_end=False,
+            max_t1_ms=None,
+            commit_reason=commit_reason,
+        )
+        if segment is None:
+            return PreviewCommitDecision(
+                reason="no_preview",
+                commit_reason=commit_reason,
+                restart_t0_ms=int(max(0, self._rt.last_submitted_t1_ms)),
+            )
+
+        rt = self._rt
+        commit_t1_ms = int(max(0, int(segment.t1_ms)))
+        inflight = rt.inflight_work
+        retired_sequence_ids: list[int] = []
+        if inflight is not None and int(inflight.t0_ms) < commit_t1_ms:
+            retired_sequence_ids.append(int(inflight.sequence_id))
+            self._retire_sequence_id(int(inflight.sequence_id))
+            rt.inflight_previous_last_submitted_t1_ms = 0
+            rt.inflight_work = None
+        if inflight is None or retired_sequence_ids:
+            rt.last_submitted_t1_ms = int(commit_t1_ms)
+        return PreviewCommitDecision(
+            reason="manual_preview_committed",
+            applied=True,
+            segment=segment,
+            commit_reason=commit_reason,
+            retired_sequence_ids=tuple(retired_sequence_ids),
+            restart_t0_ms=int(commit_t1_ms),
+        )
+
+    def _commit_preview(
+        self,
+        *,
+        include_recording_end: bool,
+        max_t1_ms: int | None,
+        commit_reason: str,
+    ) -> TranscriptSegment | None:
         rt = self._rt
         preview = self.transcript_state.preview
         preview_text = str(preview.text or "").strip()
@@ -426,7 +482,7 @@ class RollingASRCore:
         rt.decode_offset_ms = int(max(rt.decode_offset_ms, commit_t1_ms))
         self.preview_history = reset_preview_history()
         self._maybe_trim_pcm_buffer()
-        _increment_reason_count(rt.commit_reason_counts, "rolling_context_tail_preview_commit")
+        _increment_reason_count(rt.commit_reason_counts, commit_reason)
         return segment
 
     def _record_work_decision(self, decision: WorkDecision) -> WorkDecision:
@@ -438,6 +494,12 @@ class RollingASRCore:
         if str(decision.commit_reason or "").strip():
             _increment_reason_count(self._rt.commit_reason_counts, str(decision.commit_reason or ""))
         return decision
+
+    def _retire_sequence_id(self, sequence_id: int) -> None:
+        rt = self._rt
+        rt.retired_sequence_ids.add(int(sequence_id))
+        while len(rt.retired_sequence_ids) > _MAX_RETIRED_SEQUENCE_IDS:
+            rt.retired_sequence_ids.discard(min(rt.retired_sequence_ids))
 
     def _normalize_committed_segments(
         self,

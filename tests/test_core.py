@@ -191,6 +191,62 @@ class RollingASRCoreTest(unittest.TestCase):
         self.assertEqual(core.transcript_state.committed_segments[0].t1_ms, 1200)
         self.assertEqual(core.transcript_state.preview.text, "")
 
+    def test_manual_commit_preview_retires_overlapping_inflight_and_restarts_at_boundary(self) -> None:
+        core = RollingASRCore(audio_format=self.audio_format, settings=self.settings)
+        core.ingest_audio(_pcm_bytes_for_ms(1000, audio_format=self.audio_format))
+        first_work = core.build_work_item(force=True).work_item
+        core.apply_result(
+            ASRResult(
+                sequence_id=first_work.sequence_id,
+                t0_ms=first_work.t0_ms,
+                t1_ms=first_work.t1_ms,
+                ok=True,
+                segments=(TranscriptSegment(segment_id="s1", text="hello", t0_ms=0, t1_ms=900),),
+                text="hello",
+            )
+        )
+        core.ingest_audio(_pcm_bytes_for_ms(1000, audio_format=self.audio_format))
+        inflight_work = core.build_work_item(force=True).work_item
+
+        decision = core.manual_commit_preview()
+
+        self.assertTrue(decision.applied)
+        self.assertEqual(decision.reason, "manual_preview_committed")
+        self.assertEqual(decision.commit_reason, "manual_preview_commit")
+        self.assertEqual(decision.retired_sequence_ids, (inflight_work.sequence_id,))
+        self.assertEqual(decision.restart_t0_ms, 900)
+        self.assertIsNotNone(decision.segment)
+        self.assertEqual(decision.segment.text, "hello")
+        self.assertEqual(decision.segment.t0_ms, 0)
+        self.assertEqual(decision.segment.t1_ms, 900)
+        self.assertFalse(core.has_inflight_work)
+        self.assertEqual(core.processed_offset_ms, 900)
+        self.assertEqual(core.decode_offset_ms, 900)
+        self.assertEqual(core.last_submitted_t1_ms, 900)
+        self.assertEqual(core.transcript_state.preview.text, "")
+
+        late_decision = core.apply_result(
+            ASRResult(
+                sequence_id=inflight_work.sequence_id,
+                t0_ms=inflight_work.t0_ms,
+                t1_ms=inflight_work.t1_ms,
+                ok=True,
+                segments=(TranscriptSegment(segment_id="s2", text="hello there", t0_ms=0, t1_ms=1900),),
+                text="hello there",
+            )
+        )
+
+        self.assertEqual(late_decision.reason, "retired_result")
+        self.assertEqual(len(core.transcript_state.committed_segments), 1)
+        self.assertEqual(core.transcript_state.committed_segments[0].text, "hello")
+        self.assertEqual(core.transcript_state.preview.text, "")
+
+        next_work = core.build_work_item(force=True).work_item
+
+        self.assertIsNotNone(next_work)
+        self.assertEqual(next_work.t0_ms, 900)
+        self.assertEqual(next_work.t1_ms, 2000)
+
     def test_apply_commit_result_returns_committed_segments(self) -> None:
         core = RollingASRCore(audio_format=self.audio_format, settings=self.settings)
         core.ingest_audio(_pcm_bytes_for_ms(1700, audio_format=self.audio_format))

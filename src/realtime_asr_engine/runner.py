@@ -13,6 +13,7 @@ from .core import RollingASRCore
 from .settings import LiveASRRunnerSettings
 from .types import ASRResult
 from .types import ApplyDecision
+from .types import PreviewCommitDecision
 from .types import TranscriptState
 from .types import WorkDecision
 from .vad_silero import SileroVadGate
@@ -283,6 +284,9 @@ class LiveASRRunner:
         if segment is not None and bool(speech_gate_forced):
             self._rt.speech_gate_forced_commit_count = int(max(0, self._rt.speech_gate_forced_commit_count) + 1)
         return segment
+
+    def manual_commit_preview(self) -> PreviewCommitDecision:
+        return self.core.manual_commit_preview()
 
     def handle_speech_activity(
         self,

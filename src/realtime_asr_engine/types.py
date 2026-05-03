@@ -81,3 +81,13 @@ class ApplyDecision:
     commit_reason: str = ""
     single_segment_forced_commit: bool = False
     force_commit_repeats_applied: bool = False
+
+
+@dataclass(frozen=True)
+class PreviewCommitDecision:
+    reason: str
+    applied: bool = False
+    segment: TranscriptSegment | None = None
+    commit_reason: str = ""
+    retired_sequence_ids: tuple[int, ...] = ()
+    restart_t0_ms: int = 0

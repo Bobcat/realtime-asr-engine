@@ -19,6 +19,7 @@ from .settings import SpeechGateSettings
 from .types import ASRResult
 from .types import ASRWorkItem
 from .types import ApplyDecision
+from .types import PreviewCommitDecision
 from .types import PreviewTranscriptState
 from .types import TranscriptSegment
 from .types import TranscriptState
@@ -34,6 +35,7 @@ __all__ = [
     "LiveASRRunner",
     "LiveASRRunnerSettings",
     "LivePacingSettings",
+    "PreviewCommitDecision",
     "PreviewTranscriptState",
     "PreviewHistoryState",
     "PacingSettings",
